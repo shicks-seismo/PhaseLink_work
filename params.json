@@ -11,8 +11,8 @@
     "device": "cuda:0",
     "model_file": "models_saved/stacked_gru/model_006_0.002628.pt",
     "station_file": "PhaseLink_work/stations_voila.txt",
-    "station_map_file": "station_map.pkl",
-    "sncl_map_file": "sncl_map.pkl",
+    "station_map_file": "PhaseLink_work/station_map.pkl",
+    "sncl_map_file": "PhaseLink_work/sncl_map.pkl",
     "gpd_file": "shimane_stasis.output",
     "pr_min": 0.50,
     "trig_dur_min": 0.00,
@@ -38,8 +38,8 @@
     "n_threads": 35,
     "catalog_file_post": "anza_test.xml",
         "tt_table": {
-        "P": "TT/TT.hkun07.sealevel.pg",
-        "S": "TT/TT.hkun07.sealevel.sg"
+        "P": "TT/TT.LA_Bie_SRL_2020.pg",
+        "S": "TT/TT.LA_Bie_SRL_2020.pg"
     },
     "datum": 0.0
 }
