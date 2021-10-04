@@ -253,7 +253,7 @@ def get_network_centroid(params):
     lon0 = (np.max(stlo) + np.min(stlo))*0.5
     return lat0, lon0
 
-def build_station_map(paramsm, lat0, lon0):
+def build_station_map(params, lat0, lon0):
     stations = {}
     sncl_map = {}
     count = 0
