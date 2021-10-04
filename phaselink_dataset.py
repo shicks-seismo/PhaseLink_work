@@ -1,4 +1,23 @@
-#!/home/zross/bin/python
+#!/usr/bin/python
+#-----------------------------------------------------------------------------------------------------------------------------------------
+
+# PhaseLink: Earthquake phase association with deep learning
+# Author: Zachary E. Ross
+# Seismological Laboratory
+# California Institute of Technology
+
+# Script Description:
+# Script to build a training dataset for PhaseLink from a station file and 1D travel time table. The travel time tables are in the format 
+# that is output by the GrowClust code. A decoupled version of this raytracer is provided in raytracer.tar.gz, which has a python wrapper 
+# to the F90 routine.
+
+# Usage:
+# python phaselink_dataset.py config_json
+# For example: python phaselink_dataset.py params.json
+
+#-----------------------------------------------------------------------------------------------------------------------------------------
+
+# Import neccessary modules:
 import numpy as np
 import multiprocessing as mp
 import pickle
@@ -6,13 +25,16 @@ import sys
 import json
 from obspy.geodetics.base import gps2dist_azimuth
 
+#----------------------------------------------- Define constants and parameters -----------------------------------------------
 bounds_scaler = 1
 limit_max_distance = True
 random_sta_locs = False
-phase_idx = {'P': 0, 'S': 1}
+#----------------------------------------------- End: Define constants and parameters -----------------------------------------------
 
+#----------------------------------------------- Define main functions -----------------------------------------------
 def output_thread(out_q, params):
-    n_threads = params['n_threads']
+    """Function to collect outputs from multiprocessing threads that generate 
+    the synthetic training dataset."""
     none_count = 0
     X = []
     Y = []
@@ -23,8 +45,7 @@ def output_thread(out_q, params):
         else:
             X.append(res[0])
             Y.append(res[1])
-            print(len(Y))
-        if none_count == n_threads:
+        if none_count == params['n_threads']:
             break
     X = np.array(X)
     Y = np.array(Y)
@@ -32,22 +53,27 @@ def output_thread(out_q, params):
     ones = np.sum(Y)
     zeros = np.size(Y) - ones
     total = ones + zeros
-    print("Ones:", ones, 100*ones/total)
-    print("Zeros:", zeros, 100*zeros/total)
+    
+    print("P-phases (zeros):", zeros, "(", 100*zeros/total, "%)")
+    print("S-phases (ones):", ones, "(", 100*ones/total, "%)")
 
     np.save(params["training_dset_X"], X)
     np.save(params["training_dset_Y"], Y)
+
+    print("Saved the synthetic training dataset.")
 
     return
 
 def generate_phases(in_q, out_q, x_min, x_max, y_min, y_max, \
                     sncl_idx, stla, stlo, phasemap, tt_p, tt_s, params):
+    """Function to generate random synthetic phase arrivals, given travel-time 
+    tables for P- and S- phases."""
+    # Get any additional parameters from params:
+    max_picks = params['n_max_picks']
+    t_max = params['t_win']
+    n_threads = params['n_threads']
 
     np.random.seed()
-
-    t_max = params['t_win']
-    max_picks = params['n_max_picks']
-    n_threads = params['n_threads']
 
     # Random phase station time generator
     n_sta = sncl_idx.size
@@ -208,6 +234,8 @@ def generate_phases(in_q, out_q, x_min, x_max, y_min, y_max, \
         out_q.put((X, Y))
 
 class tt_interp:
+    """Class to interpolate a travel-time table, given a travel-time table file 
+    and datum."""
     def __init__(self, ttfile, datum):
         with open(ttfile, 'r') as f:
             count = 0
@@ -247,6 +275,8 @@ class tt_interp:
 
 
 def get_network_centroid(params):
+    """Function to get network centroid, based upon 
+    the parameters specified in the params json file."""
     stlo = []
     stla = []
     with open(params['station_file'], 'r') as f:
@@ -259,7 +289,9 @@ def get_network_centroid(params):
     lon0 = (np.max(stlo) + np.min(stlo))*0.5
     return lat0, lon0
 
-def build_station_map(params, lat0, lon0):
+def build_station_map(params, lat0, lon0, phase_idx):
+    """Function to create a station and phase map, based upon 
+    the parameters specified in the params json file."""
     stations = {}
     sncl_map = {}
     count = 0
@@ -289,31 +321,34 @@ def build_station_map(params, lat0, lon0):
 
     return stlo, stla, phasemap, sncl_idx, stations, sncl_map
 
+#----------------------------------------------- End: Define main functions -----------------------------------------------
 
+
+#----------------------------------------------- Run script -----------------------------------------------
 if __name__ == "__main__":
+    # Import param json file:
     if len(sys.argv) != 2:
-        print("phaselink_dataset config_json")
+        print("Usage: python phaselink_dataset.py config_json")
+        print("E.g. python phaselink_dataset.py params.json")
         sys.exit()
-
     with open(sys.argv[1], "r") as f:
         params = json.load(f)
 
+    # Set key parameters from param file:
     max_picks = params['n_max_picks']
     t_max = params['t_win']
     n_threads = params['n_threads']
 
     print("Starting up...")
+    # Setup grid:
     phase_idx = {'P': 0, 'S': 1}
-
     lat0, lon0 = get_network_centroid(params)
     stlo, stla, phasemap, sncl_idx, stations, sncl_map = \
-        build_station_map(params)
-
+        build_station_map(params, lat0, lon0, phase_idx)
     x_min = np.min(stlo)
     x_max = np.max(stlo)
     y_min = np.min(stla)
     y_max = np.max(stla)
-
     for key in sncl_map:
         X0, Y0 = stations[key]
         X0 = (X0 - x_min) / (x_max - x_min)
@@ -324,28 +359,29 @@ if __name__ == "__main__":
     pickle.dump(stations, open(params['station_map_file'], 'wb'))
     pickle.dump(sncl_map, open(params['sncl_map_file'], 'wb'))
 
-    in_q = mp.Queue(1000000)
-    out_q = mp.Queue(1000000)
+    # # Pwaves
+    # pTT = tt_interp(params['tt_table']['P'], params['datum'])
+    # print('Read pTT')
+    # print('(dep,dist) = (0,0), (10,0), (0,10), (10,0):')
+    # print('             {:.3f}   {:.3f}   {:.3f}   {:.3f}'.format(
+	# pTT.interp(0,0), pTT.interp(10,0),pTT.interp(0,10),
+	# pTT.interp(10,10)))
 
-    # Pwaves
-    pTT = tt_interp(params['tt_table']['P'], params['datum'])
-    print('Read pTT')
-    print('(dep,dist) = (0,0), (10,0), (0,10), (10,0):')
-    print('             {:.3f}   {:.3f}   {:.3f}   {:.3f}'.format(
-	pTT.interp(0,0), pTT.interp(10,0),pTT.interp(0,10),
-	pTT.interp(10,10)))
+    # #Swaves
+    # sTT = tt_interp(params['tt_table']['S'], params['datum'])
+    # print('Read sTT')
+    # print('(dep,dist) = (0,0), (10,0), (0,10), (10,0):')
+    # print('             {:.3f}   {:.3f}   {:.3f}   {:.3f}'.format(
+	# sTT.interp(0,0), sTT.interp(10,0),sTT.interp(0,10),
+	# sTT.interp(10,10)))
 
-    #Swaves
-    sTT = tt_interp(params['tt_table']['S'], params['datum'])
-    print('Read sTT')
-    print('(dep,dist) = (0,0), (10,0), (0,10), (10,0):')
-    print('             {:.3f}   {:.3f}   {:.3f}   {:.3f}'.format(
-	sTT.interp(0,0), sTT.interp(10,0),sTT.interp(0,10),
-	sTT.interp(10,10)))
+    # Get travel-time tables for P and S waves:
+    pTT = tt_interp(params['trav_time_p'], params['datum'])
+    sTT = tt_interp(params['trav_time_s'], params['datum'])
 
-    #pTT = tt_interp(params['trav_time_p'])
-    #sTT = tt_interp(params['trav_time_s'])
-
+    # Generate synthetic training dataset for given param file:
+    in_q = mp.Queue() ###1000000)
+    out_q = mp.Queue() ###1000000)
     proc = mp.Process(target=output_thread, args=(out_q, params))
     proc.start()
     procs = []
@@ -353,7 +389,7 @@ if __name__ == "__main__":
         print("Starting thread %d" % i)
         p = mp.Process(target=generate_phases, \
             args=(in_q, out_q, x_min, x_max, y_min, y_max, \
-                  sncl_idx, stla, stlo, phasemap, pTT, sTT))
+                  sncl_idx, stla, stlo, phasemap, pTT, sTT, params))
         p.start()
         procs.append(p)
 
@@ -365,3 +401,9 @@ if __name__ == "__main__":
     #for p in procs:
     #    p.join()
     #proc.join()
+
+    print("Creating the following files for the PhaseLink synthetic training dataset:")
+    print(params['station_map_file'])
+    print(params['sncl_map_file'])
+    print(params['training_dset_X'])
+    print(params['training_dset_Y'])
