@@ -9,6 +9,7 @@ from obspy.geodetics.base import gps2dist_azimuth
 bounds_scaler = 1
 limit_max_distance = True
 random_sta_locs = False
+phase_idx = {'P': 0, 'S': 1}
 
 def output_thread(out_q, params):
     none_count = 0
