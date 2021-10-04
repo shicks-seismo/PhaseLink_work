@@ -1,4 +1,22 @@
-#!/home/zross/bin/python
+#!/usr/bin/python
+#-----------------------------------------------------------------------------------------------------------------------------------------
+
+# PhaseLink: Earthquake phase association with deep learning
+# Author: Zachary E. Ross
+# Seismological Laboratory
+# California Institute of Technology
+
+# Script Description:
+# Script to train a stacked bidirectional GRU model to link phases together. This code takes the synthetic training dataset produced using p
+# haselink_dataset and trains a deep neural network to associate individual phases into events.
+
+# Usage:
+# python phaselink_train.py config_json
+# For example: python phaselink_train.py params.json
+
+#-----------------------------------------------------------------------------------------------------------------------------------------
+
+# Import neccessary modules:
 import numpy as np
 import os
 import torch
@@ -6,14 +24,15 @@ import torch.utils.data
 import sys
 import json
 import pickle
+import glob
+import gc 
+import matplotlib.pyplot as plt 
 from torch.utils.data.sampler import SubsetRandomSampler
 
-n_epochs = 100
-enable_amp = True
-if enable_amp:
-    import apex.amp as amp
-
+#----------------------------------------------- Define main functions -----------------------------------------------
 class MyDataset(torch.utils.data.Dataset):
+    """Function to preprocess a dataset into the format required by 
+    pytorch for training."""
     def __init__(self, data, target, device, transform=None):
         self.data = torch.from_numpy(data).float().to(device)
         self.target = torch.from_numpy(target).short().to(device)
@@ -32,6 +51,7 @@ class MyDataset(torch.utils.data.Dataset):
         return len(self.data)
 
 class StackedGRU(torch.nn.Module):
+    """Class defining the stacked bidirectional GRU network."""
     def __init__(self):
         super(StackedGRU, self).__init__()
         self.hidden_size = 128
@@ -66,14 +86,19 @@ class StackedGRU(torch.nn.Module):
         return out
 
 class Model():
+    """Class to create and train a bidirectional GRU model."""
     def __init__(self, network, optimizer, model_path):
         self.network = network
         self.optimizer = optimizer
         self.model_path = model_path
 
     def train(self, train_loader, val_loader, n_epochs, enable_amp=False):
+        """Function to perform the training of a bidirectional GRU model.
+        Loads and trains the data."""
         from torch.autograd import Variable
         import time
+        if enable_amp:
+            import apex.amp as amp
 
         #pos_weight = torch.ones([1]).to(device)*24.264966334432359
         #loss = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
@@ -133,7 +158,6 @@ class Model():
                     running_sample_count += len(labels)
 
                     # Print every 10th batch of an epoch
-                    print(print_every)
                     if (i + 1) % (print_every + 1) == 0:
                         print("Epoch {}, {:d}% \t train_loss: {:.4e} "
                             "train_acc: {:4.2f}% took: {:.2f}s".format(
@@ -183,6 +207,7 @@ class Model():
 
                     y_true = labels
 
+                    # Get precision-recall for current validation epoch:
                     prec_0 += (
                         y_pred[y_pred<0.5] == y_true[y_pred<0.5]
                     ).sum().item()
@@ -195,16 +220,25 @@ class Model():
                     reca_1 += (
                         y_pred[y_true>0.5] == y_true[y_true>0.5]
                     ).sum().item()
-
                     prec_n_0 += torch.numel(y_pred[y_pred<0.5])
                     prec_n_1 += torch.numel(y_pred[y_pred>0.5])
                     reca_n_0 += torch.numel(y_true[y_true<0.5])
                     reca_n_1 += torch.numel(y_true[y_true>0.5])
 
-            print("Precision (Class 0): {:4.3f}%".format(prec_0/prec_n_0))
-            print("Recall (Class 0): {:4.3f}%".format(reca_0/reca_n_0))
-            print("Precision (Class 1): {:4.3f}%".format(prec_1/prec_n_1))
-            print("Recall (Class 1): {:4.3f}%".format(reca_1/reca_n_1))
+                    # Check if any are zero, and if so, set to 1 sample, simply so doesn't crash:
+                    # (Note: Just effects printing output)
+                    if prec_n_0 == 0:
+                        prec_n_0 = 1
+                    if prec_n_1 == 0:
+                        prec_n_1 = 1
+                    if reca_n_0 == 0:
+                        reca_n_0 = 1
+                    if reca_n_1 == 0:
+                        reca_n_1 = 1
+            print("Precision (Class 0): {:4.3f}".format(prec_0/prec_n_0))
+            print("Recall (Class 0): {:4.3f}".format(reca_0/reca_n_0))
+            print("Precision (Class 1): {:4.3f}".format(prec_1/prec_n_1))
+            print("Recall (Class 1): {:4.3f}".format(reca_1/reca_n_1))
 
             #y_pred_all = np.concatenate(y_pred_all)
             #y_true_all = np.concatenate(y_true_all)
@@ -219,6 +253,8 @@ class Model():
                     total_val_loss,
                     100*total_val_acc))
 
+            # Save model:
+            os.makedirs(self.model_path, exist_ok=True)
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': self.network.state_dict(),
@@ -246,39 +282,98 @@ class Model():
             val_outputs = self.network(inputs)
 
 
+def find_best_model(model_path="phaselink_model"):
+    """Function to find best model.
+    Note: Currently uses a very basic selection method."""
+    # Plot model training and validation loss to select best model:
+
+    # Write the models loss function values to file:
+    models_fnames = list(glob.glob(os.path.join(model_path, "model_???_*.pt")))
+    models_fnames.sort()
+    val_losses = []
+    f_out = open(os.path.join(model_path, 'val_losses.txt'), 'w')
+    for model_fname in models_fnames:
+        model_curr = torch.load(model_fname)
+        val_losses.append(model_curr['loss'])
+        f_out.write(' '.join((model_fname, str(model_curr['loss']), '\n')))
+        del(model_curr)
+        gc.collect()
+    f_out.close()
+    val_losses = np.array(val_losses)
+    print("Written losses to file: ", os.path.join(model_path, 'val_losses.txt'))
+
+    # And select approximate best model (approx corner of loss curve):
+    approx_corner_idx = np.argwhere(val_losses < np.average(val_losses))[0][0]
+    print("Model to use:", models_fnames[approx_corner_idx])
+
+    # And plot:
+    plt.figure()
+    plt.plot(np.arange(len(val_losses)), val_losses)
+    plt.hlines(val_losses[approx_corner_idx], 0, len(val_losses), color='r', ls="--")
+    plt.ylabel("Val loss")
+    plt.xlabel("Epoch")
+    plt.show()
+
+    # And convert model to use to universally usable format (GPU or CPU):
+    model = StackedGRU().cuda(device)
+    checkpoint = torch.load(models_fnames[approx_corner_idx], map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    torch.save(model, os.path.join(model_path, 'model_to_use.gpu.pt'), _use_new_zipfile_serialization=False)
+    new_device = "cpu"
+    model = model.to(new_device)
+    torch.save(model, os.path.join(model_path, 'model_to_use.cpu.pt'), _use_new_zipfile_serialization=False)
+    del model
+    gc.collect()
+
+    print("Found best model and written out to", model_path, "for GPU and CPU.")
+
+
+#----------------------------------------------- End: Define main functions -----------------------------------------------
+
+
+#----------------------------------------------- Run script -----------------------------------------------
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("phaselink_train config_json")
+        print("Usage: python phaselink_train.py config_json")
+        print("E.g. python phaselink_train.py params.json")
         sys.exit()
-
     with open(sys.argv[1], "r") as f:
         params = json.load(f)
 
+    # Get device (cpu vs gpu) specified:
     device = torch.device(params["device"])
+    if params["device"][0:4] == "cuda":
+        torch.cuda.empty_cache()
+        enable_amp = True
+    else:
+        enable_amp = False
+    if enable_amp:
+        import apex.amp as amp
 
-    torch.cuda.empty_cache()
+    # Get training info from param file:
+    n_epochs = params["n_epochs"] #100
 
+    # Load in training dataset:
     X = np.load(params["training_dset_X"])
     Y = np.load(params["training_dset_Y"])
-    print(X.shape, Y.shape)
+    print("Training dataset info:")
+    print("Shape of X:", X.shape, "Shape of Y", Y.shape)
+    dataset = MyDataset(X, Y, device)
 
-    #print(np.where(Y==1)[0].size, "1 labels")
-    #print(np.where(Y==0)[0].size, "0 labels")
-
-    dataset = MyDataset(X, Y)
-
+    # Get dataset info:
     n_samples = len(dataset)
     indices = list(range(n_samples))
 
+    # Set size of training and validation subset:
     n_test = int(0.1*X.shape[0])
-
     validation_idx = np.random.choice(indices, size=n_test, replace=False)
     train_idx = list(set(indices) - set(validation_idx))
 
-    from torch.utils.data.sampler import SubsetRandomSampler
+    # Specify samplers:
     train_sampler = SubsetRandomSampler(train_idx)
     validation_sampler = SubsetRandomSampler(validation_idx)
 
+    # Load training data:
     train_loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=256,
@@ -306,7 +401,11 @@ if __name__ == "__main__":
     else:
         optimizer = torch.optim.Adam(stackedgru.parameters())
 
-    model = Model(stackedgru, optimizer, \
-        model_path='./phaselink_model/')
+    model = Model(stackedgru, optimizer, model_path='./phaselink_model')
     print("Begin training process.")
-    model.train(train_loader, val_loader, n_epochs)
+    model.train(train_loader, val_loader, n_epochs, enable_amp=enable_amp)
+
+    # And select and assign best model:
+    find_best_model(model_path="phaselink_model")
+
+    print("Finished.")
