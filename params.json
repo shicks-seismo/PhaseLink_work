@@ -36,6 +36,8 @@
     "max_hypo_dist": 100.0,
     "max_pick_error": 0.50,
     "n_threads": 35,
+    "trav_time_p":"PhaseLink_work/TT/TT.LA_Bie_SRL_2020.pg",
+    "trav_time_s":"PhaseLink_work/TT/TT.LA_Bie_SRL_2020.sg",
     "catalog_file_post": "anza_test.xml",
         "tt_table": {
         "P": "PhaseLink_work/TT/TT.LA_Bie_SRL_2020.pg",
