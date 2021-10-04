@@ -23,7 +23,7 @@
     "plot_seismicity": true,
     "training_dset_X": "shimane_train_X.npy",
     "training_dset_Y": "shimane_train_Y.npy",
-    "n_train_samp": 5000000,
+    "n_train_samp": 1000000,
     "fault_file": "/home/zross/src/Qt_flt_v2-0latlonNAD27.MIF",
     "n_min_radius": 8,
     "n_fake": 75,
