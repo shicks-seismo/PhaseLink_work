@@ -45,6 +45,8 @@ def generate_phases(in_q, out_q, x_min, x_max, y_min, y_max, \
     np.random.seed()
 
     t_max = params['t_win']
+    max_picks = params['n_max_picks']
+    n_threads = params['n_threads']
 
     # Random phase station time generator
     n_sta = sncl_idx.size
