@@ -111,6 +111,7 @@ class Model():
             running_loss = 0.0
             running_acc = 0
             running_val_acc = 0
+            print("n_batches", n_batches))
             print_every = n_batches // 10
             start_time = time.time()
             total_train_loss = 0
