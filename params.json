@@ -38,8 +38,8 @@
     "n_threads": 35,
     "catalog_file_post": "anza_test.xml",
         "tt_table": {
-        "P": "TT/TT.LA_Bie_SRL_2020.pg",
-        "S": "TT/TT.LA_Bie_SRL_2020.pg"
+        "P": "PhaseLink_work/TT/TT.LA_Bie_SRL_2020.pg",
+        "S": "PhaseLink_work/TT/TT.LA_Bie_SRL_2020.pg"
     },
     "datum": 0.0
 }
