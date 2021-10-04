@@ -10,7 +10,7 @@
     "outpkl": "sjfz_det_linked.pkl",
     "device": "cuda:0",
     "model_file": "models_saved/stacked_gru/model_006_0.002628.pt",
-    "station_file": "station_list.txt",
+    "station_file": "stations_voila.txt",
     "station_map_file": "station_map.pkl",
     "sncl_map_file": "sncl_map.pkl",
     "gpd_file": "shimane_stasis.output",
