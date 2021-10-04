@@ -133,6 +133,7 @@ class Model():
                     running_sample_count += len(labels)
 
                     # Print every 10th batch of an epoch
+                    print(print_every)
                     if (i + 1) % (print_every + 1) == 0:
                         print("Epoch {}, {:d}% \t train_loss: {:.4e} "
                             "train_acc: {:4.2f}% took: {:.2f}s".format(
