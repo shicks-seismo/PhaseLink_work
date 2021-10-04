@@ -12,6 +12,7 @@ random_sta_locs = False
 phase_idx = {'P': 0, 'S': 1}
 
 def output_thread(out_q, params):
+    n_threads = params['n_threads']
     none_count = 0
     X = []
     Y = []
