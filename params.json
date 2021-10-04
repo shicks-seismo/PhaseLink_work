@@ -34,10 +34,6 @@
     "n_threads": 8,
     "trav_time_p":"PhaseLink_work/TT/TT.LA_Bie_SRL_2020.pg",
     "trav_time_s":"PhaseLink_work/TT/TT.LA_Bie_SRL_2020.sg",
-    "catalog_file_post": "anza_test.xml",
-        "tt_table": {
-        "P": "PhaseLink_work/TT/TT.LA_Bie_SRL_2020.pg",
-        "S": "PhaseLink_work/TT/TT.LA_Bie_SRL_2020.pg"
     },
     "datum": 0.0
 }
