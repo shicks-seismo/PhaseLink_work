@@ -40,9 +40,11 @@ def output_thread(out_q, params):
     return
 
 def generate_phases(in_q, out_q, x_min, x_max, y_min, y_max, \
-                    sncl_idx, stla, stlo, phasemap, tt_p, tt_s):
+                    sncl_idx, stla, stlo, phasemap, tt_p, tt_s, params):
 
     np.random.seed()
+
+    t_max = params['t_win']
 
     # Random phase station time generator
     n_sta = sncl_idx.size
