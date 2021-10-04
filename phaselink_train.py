@@ -112,7 +112,7 @@ class Model():
 
                 if enable_amp:
                     loss_ = loss(outputs, labels.float())
-                    with amp.scale_loss(loss_, optimizer) as loss_value:
+                    with amp.scale_loss(loss_, self.optimizer) as loss_value:
                         loss_value.backward()
                 else:
                     loss_value = loss(outputs, labels.float())
