@@ -71,7 +71,7 @@ class Model():
         self.optimizer = optimizer
         self.model_path = model_path
 
-    def train(self, train_loader, val_loader, n_epochs):
+    def train(self, train_loader, val_loader, n_epochs, enable_amp=False):
         from torch.autograd import Variable
         import time
 
