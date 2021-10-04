@@ -13,7 +13,7 @@ if enable_amp:
     import apex.amp as amp
 
 class MyDataset(torch.utils.data.Dataset):
-    def __init__(self, data, target, transform=None):
+    def __init__(self, data, target, device, transform=None):
         self.data = torch.from_numpy(data).float().to(device)
         self.target = torch.from_numpy(target).short().to(device)
         self.transform = transform
